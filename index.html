@@ -5,51 +5,269 @@
     <script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>
     <link rel="stylesheet" type="text/css" href="styles.css">
 </head>
+<style>
+.SArea.hidden {
+  display: none;
+}
+</style>
 <body>
     <div class="navbar"><span>Real-Time Chart with Plotly.js</span></div>
     <div class="wrapper">
-
+		
+		 
         <label for="cha">Choose a chart:</label>
 
         <select id="cha" onchange="myFunction(this.value)">
             <option value="bar">bar</option>
-            <option value="line">line</option>
-            <option value="pie" selected>pie</option>
+            <option value="line" >line</option>
+			<option value="table" selected>table</option>
+            <option value="pie" >pie</option>
         </select>
-
+		<br><div id='SArea' style="display:block" data-num="0" > SubArea: <select class="countrydata" onchange="tablechart(qz,this.value)"></select></div>
+		<br><button id = "backbtn" onclick="myFunction(ori)">Back</button>
+		<br><button id = "exportbtn" onclick="exportToCsv('export.csv',head_csv,cell_csv)">Export</button>
         
 
         <div id="chart"></div>
         <script>
-            //d3.csv("https://raw.githubusercontent.com/plotly/datasets/master/Mining-BTC-180.csv", function (err, rows) {
-            d3.csv("https://raw.githubusercontent.com/heng1219/RMS_Analytics/main/critical_alarm.xls", function (err, rows) {
-                function unpack(rows, key) {
+			
+			var e = document.getElementById("cha");
+            var b = e.options[e.selectedIndex].value;
+			var ori;
+            //console.log(b);
+            myFunction(b);
+			var qz,head_csv,cell_csv;
+			var drill = false;
+			assignOptions_done = false;
+			
+			function myFunction(ch) {
+                //var ch = chq.value;
+                //console.log(ch);
+                //e = document.getElementById("cha");
+                //ch = e.options[e.selectedIndex].value;
+				SArea.style.display = "none";
+				backbtn.style.display = "none";
+				exportbtn.style.display = "none";
+				
+				document.getElementById('cha').value = ch
+			d3.csv("https://raw.githubusercontent.com/heng1219/RMS_Analytics/main/critical_alarm_1.xls", function (err, rows) {
+				//data
+				
+				//var obj = d3.map(rows, function(d){return(d.SubArea)}).keys();
+				//obj.sort();
+				//console.log(obj);
+				qz = rows;
+				//var headerNames = d3.map(rows, function(d){return(d.SubArea)}).keys();
+				//var headerValues = rows.map(function(d) { return d.SubArea })
+				var headerValues = d3.map(rows, function(d){return(d.SubArea)}).keys();
+				headerValues.sort();
+				//var cellValues = rows.map(function(d) { return d.MachineName });
+				
+				var cellValues = [];
+				
+				for (i = 0; i < headerValues.length; i++) {
+					cellValue = rows.filter(function(d){ return d.SubArea == headerValues[i] });
+					cellValues[i] = cellValue.length;
+				}
+				
+			
+                if (ch == "pie") {
+					
+						
+						//cellValue = rows.filter(function(d){ return d.SubArea == headerValues[0] });
+							//cellValues[0] = cellValue.count;
+						//console.log(headerValues);
+						//console.log(cellValue.length);
+						var data = [{
+							labels: headerValues,
+							values: cellValues,
+							type: 'pie'							
+						}];
+
+						var layout = {
+							height: 800,
+							width: 700,
+							title: 'Pie Chart'
+						};
+						Plotly.newPlot('chart', data, layout)
+						
+					
+                }
+				else if (ch == "table"){
+					tablechart(rows,'')
+				}
+                else if (ch == "line"){
+
+					var data = [{
+						x: headerValues,
+						y: cellValues,
+						mode: 'lines+markers+text',
+						name: 'Lines, Markers and Text',
+						//line: { width: 2, color: '#9748a1' },
+						hoverinfo: 'none',
+						text: cellValues,
+						textposition: 'top',
+						type: 'scatter'
+						//name: 'hash-rate-TH/s'
+					}]
+					
+					var layout = {
+							height: 600,
+							//width: 700,
+							showlegend: false,
+							title: ch + ' Chart'
+						};
+			
+                    Plotly.newPlot('chart',data,layout, {
+                        margin: { t: 0 },
+                    }, { showSendToCloud: true });
+                }else{
+					var data = [{
+						x: headerValues,
+						y: cellValues,
+						hoverinfo: 'none',
+						text: cellValues.map(String),
+						textposition: 'auto',
+						type: 'bar'
+					}]
+					
+					var layout = {
+							height: 600,
+							//width: 700,
+							showlegend: false,
+							title: ch + ' Chart'
+						};
+			
+                    Plotly.newPlot('chart',data,layout, {
+                        margin: { t: 0 },
+                    }, { showSendToCloud: true });
+				
+				}
+                //chart.on('plotly_click', function () {
+                    //for (var i = 0; i < data.points.length; i++) {
+                        //ch = data.points[0].value;
+                   // }
+				chart.on('plotly_click', function(data){
+					
+					//if (ch == "line")
+						pts_line  = data.points[data.points.length - 1].x;
+						
+					//else
+						pts_others = data.points[data.points.length - 1].label;
+						pts = pts_line || pts_others;
+						//alert('Closest point clicked:\n\n'+ pts);
+						document.getElementById('cha').value = 'table'
+						ori = ch
+						drill = true;
+						tablechart(rows,pts)
+                    //myFunction("line");
+                });
+
+			});
+                
+            }
+			
+			function exportToCsv(filename, header, rows) {
+				var processRow = function (row) {
+					var finalVal = '';
+					//console.log('processRow');
+					//console.log(row.length);
+					for (var j = 0; j < row.length; j++) {
+						var innerValue = row[j] === null ? '' : row[j].toString();
+						if (row[j] instanceof Date) {
+							innerValue = row[j].toLocaleString();
+						};
+						var result = innerValue.replace(/"/g, '""');
+						if (result.search(/("|,|\n)/g) >= 0)
+							result = '"' + result + '"';
+						if (j > 0)
+							finalVal += ',';
+						finalVal += result;
+					}
+					return finalVal + '\n';
+				};
+
+				var csvFile = header + '\n';
+				for (var i = 0; i < rows.length; i++) {
+					csvFile += processRow(rows[i]);
+				}
+
+				var blob = new Blob([csvFile], { type: 'text/csv;charset=utf-8;' });
+				if (navigator.msSaveBlob) { // IE 10+
+					navigator.msSaveBlob(blob, filename);
+				} else {
+					var link = document.createElement("a");
+					if (link.download !== undefined) { // feature detection
+						// Browsers that support HTML5 download attribute
+						var url = URL.createObjectURL(blob);
+						link.setAttribute("href", url);
+						link.setAttribute("download", filename);
+						link.style.visibility = 'hidden';
+						document.body.appendChild(link);
+						link.click();
+						document.body.removeChild(link);
+					}
+				}
+			}
+    
+    
+    
+
+			
+			
+			function unpack(rows, key) {
                     return rows.map(function (row) { return row[key]; });
                 }
-
-                // header values
+			
+			function tablechart(rows, filter_val){
+				// header values
+				exportbtn.style.display = "block";
                 var headerNames = d3.keys(rows[0]);
-                var headerValues = [headerNames[1], headerNames[2],
-                headerNames[3], headerNames[4]];
-
+                var headerValues = [headerNames[0],headerNames[1], headerNames[2],headerNames[3], headerNames[4]];
+				//var headerValues = ['Time','AlarmCode','AlarmText','MachineName'];
+				//console.log(headerValues[3]);
                 // cell values
-                var cellValues = [];
-                for (i = 0; i < headerValues.length; i++) {
-                    cellValue = unpack(rows, headerValues[i]);
-                    cellValues[i] = cellValue;
-                }
+				//cellValue = rows.filter(function(d){ return d.SubArea == headerValues[i] });
+				//filter_val = 'CLIP_ATTACH'
+				//alert(filter_val)
+				rows_tmp = rows
+				if (filter_val != '' && filter_val != 'All')
+				{
+					rows_tmp = rows_tmp.filter(function(d){ return d.SubArea == filter_val });
+					if (drill == true)
+						backbtn.style.display = "block";
+					
+				}else{
+					SArea.style.display = "block";
+					var subarealist = d3.map(rows, function(d){return(d.SubArea)}).keys();
+					subarealist.sort();
+					var innerContainer = document.querySelector('[data-num="0"'),
+					plotEl = innerContainer.querySelector('.plot'),
+					countrySelector = innerContainer.querySelector('.countrydata');
 
+					assignOptions(subarealist, countrySelector);
+
+				}
+					
+               
+				var cellValues = [];
+                for (i = 0; i < headerValues.length; i++) {
+					cellValue = unpack(rows_tmp, headerValues[i]);
+					cellValues[i] = cellValue;
+				}
                 // clean date
+				/*
                 for (i = 0; i < cellValues[0].length; i++) {
                     var dateValue = cellValues[0][i].split(' ')[0]
                     cellValues[0][i] = dateValue
                 }
+				*/
 
                 // create table
                 var table = {
                     type: 'table',
-                    columnwidth: [150, 200, 200, 150],
-                    columnorder: [0, 1, 2, 3],
+                    columnwidth: [300, 300, 300, 300, 400],
+                    columnorder: [0, 1, 2, 3, 4],
                     header: {
                         values: headerValues,
                         align: "center",
@@ -69,119 +287,63 @@
                     domain: { x: [0, 0.4], y: [0, 1] }
                 }
 
-                // create 1st plot
-                var trace1 = {
-                    x: unpack(rows, 'Date'),
-                    y: unpack(rows, 'Hash-rate'),
-                    xaxis: 'x1',
-                    yaxis: 'y1',
-                    mode: 'lines',
-                    line: { width: 2, color: '#9748a1' },
-                    name: 'hash-rate-TH/s'
-                }
-                // create 2nd plot
-                var trace2 = {
-                    x: unpack(rows, 'Date'),
-                    y: unpack(rows, 'Mining-revenue-USD'),
-                    xaxis: 'x2',
-                    yaxis: 'y2',
-                    mode: 'lines',
-                    line: { width: 2, color: '#b04553' },
-                    name: 'Mining-revenue-USD'
-                }
-
-                // create 3rd plot
-                var trace3 = {
-                    x: unpack(rows, 'Date'),
-                    y: unpack(rows, 'Transaction-fees-BTC'),
-                    xaxis: 'x3',
-                    yaxis: 'y3',
-                    mode: 'lines',
-                    line: { width: 2, color: '#af7bbd' },
-                    name: 'Transaction-fees-BTC'
-                }
-
-                var data = [table, trace1, trace2, trace3]
-
-                // define subplot axes
-                var axis = {
-                    showline: true,
-                    zeroline: false,
-                    showgrid: true,
-                    mirror: true,
-                    ticklen: 4,
-                    gridcolor: '#ffffff',
-                    tickfont: { size: 10 },
-                }
-
-                var axis1 = { domain: [0.5, 1], anchor: 'y1', showticklabels: false }
-                var axis2 = { domain: [0.5, 1], anchor: 'y2', showticklabels: false }
-                var axis3 = { domain: [0.5, 1], anchor: 'y3' }
-                var axis4 = { domain: [0.66, 0.98], anchor: 'x1', hoverformat: '.2f' }
-                var axis5 = { domain: [0.34, 0.64], anchor: 'x2', tickprefix: '$', hoverformat: '.2f' }
-                var axis6 = { domain: [0.0, 0.32], anchor: 'x3', tickprefix: '\u20BF', hoverformat: '.2f' }
-
+				var data = [table]
+				
+				
+				
                 // define layout
                 var layout = {
-                    title: "Bitcoin mining stats for 180 days",
+                    title: "table",
                     plot_bgcolor: 'rgba(228, 222, 249, 0.65)',
                     showlegend: false,
-                    xaxis1: Object.assign(axis1, axis),
-                    xaxis2: Object.assign(axis2, axis),
-                    xaxis3: Object.assign(axis3, axis),
-                    yaxis1: Object.assign(axis4, axis),
-                    yaxis2: Object.assign(axis5, axis),
-                    yaxis3: Object.assign(axis6, axis)
+                    
                 }
+				drill = false
+                Plotly.newPlot('chart', data,layout);
+				//var wer = [['aaa', 'bbb'],['ccc', 'ddd']]
+				//console.log(cellValues[3].length)
+				
+				
+				cell_csv = transpose(cellValues);  
+				head_csv = headerValues.join(',')
+				//console.log(head)
+				//exportToCsv('export.csv',head,transposedArray)
+			}
+			
 
-                Plotly.newPlot('chart', data, layout);
-
-            });
-            /*
-            var e = document.getElementById("cha");
-            var b = e.options[e.selectedIndex].value;
-            console.log(b);
-            myFunction(b);
-            function myFunction(ch) {
-                //var ch = chq.value;
-                console.log(ch);
-                //e = document.getElementById("cha");
-                //ch = e.options[e.selectedIndex].value;
-
-                if (ch == "pie") {
-                    var data = [{
-                        labels: ['CUCRF_01', 'CUCRF_03', 'MCUCB_01', 'MCUCB_05', 'MCUCRF_06', 'MSP_01', 'MSP_10', 'MSP_12', 'MSP_14', 'MCUCB_04'],
-                        values: [58, 12, 25, 50, 6, 16, 10, 10, 5, 22],
-                        type: ch
-                    }];
-
-                    var layout = {
-                        height: 700,
-                        width: 600
-                    };
-                    Plotly.newPlot('chart', data, layout)
-                }
-                else {
-                    Plotly.newPlot('chart', [{
-                        x: ['CUCRF_01', 'CUCRF_03', 'MCUCB_01', 'MCUCB_05', 'MCUCRF_06', 'MSP_01', 'MSP_10', 'MSP_12', 'MSP_14', 'MCUCB_04'],
-                        y: [58, 12, 25, 50, 6, 16, 10, 10, 5, 22],
-                        type: ch
-                    }], {
-                        margin: { t: 0 }
-                    }, { showSendToCloud: true });
-                }
-                chart.on('plotly_click', function () {
-                    //for (var i = 0; i < data.points.length; i++) {
-                       // ch = data.points[0].value;
-                    //}
-
-                    myFunction("line");
-                });
-
-
-                
-            }
-            */
+			
+			function transpose(arr) {  
+				var k = arr.length;  
+				var l = arr[0].length;  
+				var arr1 = [];  
+				var arr2 = [];  
+				for (var j = 0; j < l; j++) {  
+					arr1 = [];  
+					for (var i = 0; i < k; i++) {  
+						arr1.push(arr[i][j]);  
+					}  
+					arr2.push(arr1);  
+				}  
+				return arr2;  
+			}  
+    
+			
+			function assignOptions(textArray, selector) {
+				if (assignOptions_done == false){
+					var currentOption = document.createElement('option');
+					currentOption.text = 'All';
+					selector.appendChild(currentOption);
+					for (var i = 0; i < textArray.length;  i++) {
+						var currentOption = document.createElement('option');
+						currentOption.text = textArray[i];
+						selector.appendChild(currentOption);
+					}
+					assignOptions_done = true;
+					
+				}
+				
+			}
+	
         </script>
     </div>
 </body>
